@@ -55,8 +55,7 @@ def main(args):
         bpy.app.driver_namespace[_KEY] = {
             "location": tuple(rv3d.view_location), "rotation": rv3d.view_rotation.copy(),
             "distance": rv3d.view_distance, "perspective": rv3d.view_perspective,
-            "space": {k: getattr(space, k) for k in ("show_region_ui", "show_region_toolbar", "show_region_tool_header",
-                                                     "show_region_hud")},
+            "space": {k: getattr(space, k) for k in ("show_region_ui", "show_region_toolbar", "show_region_tool_header")},
             "overlay": {k: getattr(space.overlay, k) for k in ("show_overlays", "show_bones", "show_text", "show_floor",
                                                                  "show_axis_x", "show_axis_y", "show_extras")},
         }
@@ -65,7 +64,8 @@ def main(args):
         space.show_region_ui = False
         space.show_region_toolbar = False
         space.show_region_tool_header = False
-        space.show_region_hud = False
+        # NOTE: never toggle space.show_region_hud here: hiding/re-showing the HUD region from the MCP
+        # execution context crashed Blender 5.2.2 twice (2026-10-10).
     for key, value in (args.get("overlay") or {}).items():
         setattr(space.overlay, key, value)
     fwd, up, left = Vector(args["forward"]), Vector(args["up"]), Vector(args["left"])

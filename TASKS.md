@@ -33,8 +33,10 @@
   `deform_only`); IK effector / foot-roll controls assigned to the toe instead of the foot segment;
   duplicate segment/limb ids for a second leg pair (quadrupeds); FK/IK chain paths lacked the
   constraint edge (provenance).
-- Incident: a direct `bpy.ops.screen.screenshot_area` call from the MCP execution context crashed the
-  interactive Blender (2026-10-10). Removed; only the official screenshot tool is used.
+- Incidents: the interactive Blender crashed twice (2026-10-10 18:33 and 18:46) while validation
+  screenshots toggled the viewport's HUD region (`show_region_hud`) from the MCP execution context
+  (same native crash frames; the second report points at restoring region visibility). HUD toggling and
+  the direct `screen.screenshot_area` call were removed; only the official screenshot tool is used.
 
 ## Known limitations / open questions
 

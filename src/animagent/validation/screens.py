@@ -179,8 +179,8 @@ async def capture_all(session: BlenderSession, p: RigProfile, outdir: Path) -> l
         )
         path = outdir / f"{shot['name']}.png"
         try:
-            # Official MCP screenshot tool only. (A direct bpy.ops.screen.screenshot_area call from the
-            # add-on's execution context crashed Blender 5.2.2 on 2026-10-10; never call it from here.)
+            # Official MCP screenshot tool only. (Do not use bpy.ops.screen.screenshot_area or region toggles from the
+            # MCP execution context; see viewport.py note.)
             path.write_bytes(await session.screenshot_view3d())
         finally:
             await session.run_script("viewport", {"action": "restore"})
