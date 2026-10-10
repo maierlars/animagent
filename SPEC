@@ -1,0 +1,176 @@
+# Project: AI Animation Agent for Blender
+
+You are implementing a standalone, agent-driven 3D animation application for stylized multiplayer fighting-game characters.
+
+The application uses **GPT-6 through the OpenAI API** as its animation intelligence and connects to a running Blender instance through the **official Blender Lab MCP Server**.
+
+You are responsible for architecture, implementation, testing and documentation. Work incrementally, validate functionality against real Blender scenes, and avoid premature abstractions.
+
+## Product goal
+
+Given a character skinned to a Rigify rig and a natural-language animation description, the application should eventually:
+
+1. Analyze the rig and understand the character's anatomy and control system.
+2. Understand mesh deformation, joint orientation, preferred bending directions and approximate mass distribution.
+3. Plan choreography, motion phases, contact events and semantic blocking poses.
+4. Convert semantic poses into actual Rigify control transformations.
+5. Generate expressive animation curves, including acceleration, anticipation, overshoot and body-part timing.
+6. Generate secondary motion for elements such as hair, tails and accessories.
+7. Evaluate animations numerically and visually, then iteratively improve them.
+8. Produce editable Blender Actions suitable for exporting to a game engine.
+
+The target is **highly stylized, exaggerated fighting-game animation**, not realistic motion capture.
+
+Animations must be readable from a relatively distant gameplay camera. Prioritize energetic timing, appealing silhouettes, expressive anticipation, explosive motion and convincing weight over strict physical realism.
+
+Our initial test character is Kyra, an athletic anthropomorphic lioness warrior who uses a two-handed staff.
+
+Our eventual target animation is a three-hit combo:
+
+- A quick strike with the staff's lower end.
+- A reverse horizontal strike using the upper end.
+- A powerful, slightly anticipated overhead diagonal smash.
+
+The attacks increase in strength and should flow naturally into one another.
+
+## Architectural requirements
+
+**Standalone Python application.** No custom Blender add-on, Blender UI or MCP server implementation.
+
+Use the official Blender Lab MCP Server from:
+https://projects.blender.org/lab/blender_mcp
+
+Before implementing integration, inspect the upstream repository and discover the MCP tools and argument schemas available in the actual running environment.
+
+Implement a proper Python MCP client for the application itself. Do not assume the application can reuse Claude Code's internal MCP session.
+
+Separate these subsystems:
+
+- MCP transport and Blender communication
+- Blender-side data extraction and manipulation
+- Rig and anatomy representation
+- GPT-6 agent orchestration
+- Choreography and semantic pose planning
+- Numerical pose solving and motion generation
+- Validation and feedback
+
+Keep numerical algorithms deterministic and independent from the LLM wherever practical.
+
+Use typed, versioned data models, preferably Pydantic. Keep the application testable without Blender by mocking the MCP interface.
+
+Use `uv` for Python project management, `pytest` for testing and structured logging for diagnostics.
+
+Avoid large agent frameworks unless justified. A straightforward orchestrator using the OpenAI Responses API is preferred.
+
+## Important design principles
+
+**Rig-independent anatomy:** The anatomical model should represent joints, body segments, limbs, end effectors and contact points independently of Rigify bone names.
+
+**Rig-specific execution:** Maintain a separate mapping between anatomical concepts and actual Rigify controls, constraints and IK/FK configurations.
+
+**Functional discovery:** Do not assume that bone names or hierarchy alone reveal how controls affect the character. We will later implement controlled perturbation experiments to measure their effects.
+
+**Compact model context:** Never send entire meshes, raw vertex arrays or hundreds of thousands of weights to GPT-6. Compute compact geometric and anatomical summaries in Python.
+
+**Reversibility:** Analysis should never permanently modify the scene. Future probing operations must restore the original rig state.
+
+**Inspectable results:** Every major pipeline stage should save structured results that can be inspected independently.
+
+**Two-handed weapons:** Eventually represent the staff as a rigid object with two grip frames rather than independently posing both hands.
+
+**Physical modeling:** Use estimated mass and inertia as artistic guidance. Skinning weights are not physical masses.
+
+## Implementation milestone 1: Rig inspection and anatomical analysis
+
+Implement ONLY this milestone initially.
+
+### Capability A: MCP connectivity
+
+Create a command-line interface that can connect to the running official Blender MCP server.
+
+Provide a command such as:
+
+`animagent doctor`
+
+It should report connection status, Blender version, available MCP capabilities and useful diagnostic information.
+
+### Capability B: Rig extraction
+
+Implement Blender-side extraction of:
+
+- Armature objects and associated meshes
+- Bone hierarchies, rest matrices, lengths and orientations
+- Pose bone transforms
+- Bone constraints, drivers and custom properties
+- Rigify ORG/DEF/MCH bones and generated controls, where applicable
+- Armature modifiers and vertex groups
+- Skinning weight summaries
+- Mesh bounding boxes and overall dimensions
+
+Store the raw extraction as a versioned, serializable data structure.
+
+Avoid extracting full mesh geometry unnecessarily.
+
+### Capability C: Anatomical interpretation
+
+Implement an initial anatomical analysis layer that identifies, where possible:
+
+- Body coordinate system and forward direction
+- Pelvis, spine, chest, neck and head
+- Arms, hands, legs and feet
+- Shoulders, elbows, hips, knees and ankles
+- Additional structures such as tails
+- Preferred limb bending directions
+- Candidate IK/FK controls and pole targets
+
+Use deterministic structural analysis first. Design an interface for GPT-6-assisted interpretation of ambiguous structures.
+
+Store confidence levels and supporting evidence. Do not silently guess when the anatomy cannot be determined.
+
+### Capability D: Visualization
+
+Generate a compact JSON report describing the inferred anatomy and control mappings.
+
+Provide a way to display anatomical landmarks, joint axes and inferred bending directions in Blender for debugging, without permanently altering the user's original scene.
+
+Support capturing suitable viewport screenshots for later visual analysis.
+
+### Capability E: Tests and documentation
+
+Implement unit tests using synthetic skeletons and mocked MCP responses.
+
+Create an integration test that operates on an actual Blender armature.
+
+Verify that inspection doesn't change the pose, animation data or mesh.
+
+Document the architecture, the data model, the connection procedure and known limitations.
+
+## Acceptance criteria for milestone 1
+
+Running:
+
+`animagent analyze-rig --armature Rig --output kyra_profile.json`
+
+should produce a structured profile containing the extracted rig information, inferred anatomical relationships, candidate control mappings and confidence information.
+
+The resulting profile should be sufficiently informative for a future pose solver to understand what needs to be controlled.
+
+The implementation must run against an actual Blender scene via MCP. Mock-only testing is insufficient.
+
+## Development process
+
+First inspect the official Blender MCP implementation and verify a working connection. Then write `ARCHITECTURE.md`, `SPEC.md`, `TASKS.md` and a concise `CLAUDE.md` containing persistent project instructions.
+
+Create a minimal executable project skeleton.
+
+Implement milestone 1 in small, testable increments. Test each increment before proceeding.
+
+You may use the Blender MCP tools directly to inspect the currently open character rig.
+
+Do not modify the original `.blend` file. Ask for a test scene if none is available.
+
+Do not implement choreography planning, pose optimization or curve generation yet. Define their interfaces only where needed to keep the design extensible.
+
+At the end, demonstrate the working CLI against Blender, summarize what was implemented, identify remaining uncertainties, and propose the next milestone.
+
+**Start by inspecting the available MCP tools and outlining the concrete milestone-1 implementation plan. Then proceed with implementation.**

@@ -1,0 +1,45 @@
+[project]
+name = "animagent"
+version = "0.1.0"
+description = "Agent-driven stylized animation pipeline for Rigify characters in Blender (milestone 1: rig inspection and anatomical analysis)"
+readme = "README.md"
+authors = [
+    { name = "Lars Maier", email = "lars.maier@arangodb.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "mcp>=1.2",
+    "numpy>=2.5.3",
+    "openai>=3.28.0",
+    "pydantic>=2.7",
+    "structlog>=26.1.0",
+]
+
+[project.scripts]
+animagent = "animagent.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.12.19,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-timeout>=2.4.0",
+    "ruff>=0.17.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "blender: integration tests that need a real Blender (background instance started automatically)",
+    "live: integration tests against the user's running Blender instance (opt-in via ANIMAGENT_LIVE_TESTS=1)",
+]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 120
+extend-exclude = ["src/animagent/blender/scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
