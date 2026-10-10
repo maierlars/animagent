@@ -674,13 +674,14 @@ def _mw(c: _Ctx, bone: str) -> list[list[float]] | None:
 
 def _build_limb(c: _Ctx, br: _Branch, poles: dict[str, list[float]]) -> None:
     side = br.side
-    tag = _side_tag(side)
+    base_kind = "arm" if br.kind == "arm" else "leg"
+    repeat = any(lb.id == f"{base_kind}{_side_tag(side)}" for lb in c.limbs)
+    # A second limb pair of the same kind (e.g. quadruped front legs) gets a distinct id namespace.
+    tag = (".fore" if base_kind == "leg" else ".extra") + _side_tag(side) if repeat else _side_tag(side)
     chain = br.chain
     attach_seg = c.assigned.get(br.attach or "", None)
     is_arm = br.kind == "arm"
     limb_id = f"{'arm' if is_arm else 'leg'}{tag}"
-    if any(lb.id == limb_id for lb in c.limbs):
-        limb_id = f"{limb_id}:{_label(br.root)}"
     if len(chain) < 2:
         return
     i, why = _split_chain(c, chain)
@@ -1051,7 +1052,7 @@ def analyze_anatomy(ex: RigExtraction, skel: Skeleton) -> AnatomyProfile:
     _classify_branches(c, branches)
     _trunk(c, branches)
     poles = _collect_poles(ex, skel)
-    for br in sorted(branches, key=lambda b: (b.kind != "leg", b.kind != "arm", b.side.value)):
+    for br in sorted(branches, key=lambda b: (b.kind != "leg", b.kind != "arm", c.h(c.bm[b.root].head), b.side.value)):
         if br.kind in ("leg", "arm") and br.root not in c.assigned:
             _build_limb(c, br, poles)
     for kind in ("arm", "leg"):

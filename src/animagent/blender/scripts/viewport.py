@@ -44,6 +44,10 @@ def main(args):
         rv3d.view_rotation = saved["rotation"]
         rv3d.view_distance = saved["distance"]
         rv3d.view_perspective = saved["perspective"]
+        for key, value in saved.get("space", {}).items():
+            setattr(space, key, value)
+        for key, value in saved.get("overlay", {}).items():
+            setattr(space.overlay, key, value)
         _force_redraw(win, area)
         return {"status": "restored"}
 
@@ -51,7 +55,19 @@ def main(args):
         bpy.app.driver_namespace[_KEY] = {
             "location": tuple(rv3d.view_location), "rotation": rv3d.view_rotation.copy(),
             "distance": rv3d.view_distance, "perspective": rv3d.view_perspective,
+            "space": {k: getattr(space, k) for k in ("show_region_ui", "show_region_toolbar", "show_region_tool_header",
+                                                     "show_region_hud")},
+            "overlay": {k: getattr(space.overlay, k) for k in ("show_overlays", "show_bones", "show_text", "show_floor",
+                                                                 "show_axis_x", "show_axis_y", "show_extras")},
         }
+    # UI-only presentation settings for the capture (restored by "restore").
+    if args.get("hide_panels", True):
+        space.show_region_ui = False
+        space.show_region_toolbar = False
+        space.show_region_tool_header = False
+        space.show_region_hud = False
+    for key, value in (args.get("overlay") or {}).items():
+        setattr(space.overlay, key, value)
     fwd, up, left = Vector(args["forward"]), Vector(args["up"]), Vector(args["left"])
     view = args.get("view", "front")
     # Direction the camera looks along (from eye to subject).
@@ -65,7 +81,7 @@ def main(args):
     y = z.cross(x).normalized()
     rv3d.view_rotation = Matrix((x, y, z)).transposed().to_quaternion()
     rv3d.view_location = Vector(args["center"])
-    rv3d.view_distance = float(args.get("size", 2.0)) * 1.25
+    rv3d.view_distance = float(args.get("size", 2.0)) * float(args.get("zoom", 1.25))
     rv3d.view_perspective = "PERSP" if view == "persp" else "ORTHO"
     _force_redraw(win, area)
     return {"status": "framed", "view": view, "area": [area.width, area.height]}

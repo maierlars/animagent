@@ -294,6 +294,15 @@ class RigGraph:
             segment=segment,
         )
 
+    def constraint_link(self, bone: str, target: str | None) -> list[DependencyLink]:
+        """The constraint edge from `bone` to `target`, if one exists (for provenance)."""
+        if target is None:
+            return []
+        for c in self.bones[bone].constraints:
+            if any(t.subtarget == target for t in c.targets):
+                return [DependencyLink(from_bone=bone, to_bone=target, via=f"constraint:{c.type}:{c.name}")]
+        return []
+
     def observed_source(self, bone: str, tol: float = 1e-3) -> str | None:
         """Constraint target whose *current evaluated* pose matrix equals this bone's (read-only check)."""
         b = self.bones[bone]
@@ -486,6 +495,7 @@ def _limb_controls(
     main = [segs[s] for s in limb.segments]
     struct = [s.source_bones[0] for s in main]
     lc = LimbControls(limb_id=limb_id)
+    effector_segment = next((e.segment for e in anatomy.end_effectors if e.id == limb.end_effector), limb.segments[-1])
 
     # Controls that move the limb's attachment (torso, root, ...) are upstream, not limb controls.
     attach_bone = segs[limb.attached_to].source_bones[0] if limb.attached_to in segs else None
@@ -582,6 +592,7 @@ def _limb_controls(
             elif cands:
                 fk_src = cands[0][0]
         fk_ctrl, fk_path = _resolve_one(g, fk_src)
+        fk_path = g.constraint_link(sb, fk_src) + fk_path
         if fk_ctrl:
             coin = g.coincident(fk_ctrl, sb)
             ev = [Evidence(kind="dependency", detail=f"{sb} follows {fk_src} in FK mode", weight=0.7)]
@@ -592,6 +603,7 @@ def _limb_controls(
             lc.fk_chain.append(g.control_ref(fk_ctrl, "fk", 0.9 if coin else 0.6, ev, fk_path, seg.id))
         if ik_src is not None and ik_src != fk_src:
             ik_ctrl, ik_path = _resolve_one(g, ik_src)
+            ik_path = g.constraint_link(sb, ik_src) + ik_path
             if ik_ctrl and ik_ctrl not in {c.bone for c in lc.ik_chain_controls}:
                 is_chain = any(ik_ctrl in ch.chain_bones for ch in lc.ik_chains) or any(
                     g.bones[cb].parent == ik_ctrl for ch in lc.ik_chains for cb in ch.chain_bones
@@ -624,7 +636,7 @@ def _limb_controls(
                         weight=0.9,
                     )
                 ],
-                segment=limb.segments[-1],
+                segment=effector_segment,
             )
         if pole_chain is not None and pole_chain.pole_control:
             state = "currently muted (pole mode switched off)" if pole_chain.muted else "active"
@@ -659,7 +671,7 @@ def _limb_controls(
                             )
                         ],
                         p,
-                        limb.segments[-1],
+                        effector_segment,
                     )
                 )
     # Tweak / other controls reachable from deform bones of the limb.
@@ -728,10 +740,13 @@ def map_controls(ex: RigExtraction, skel: Skeleton, anatomy: AnatomyProfile) -> 
         for k, (p, vc, st) in found.items():
             coincident = any(g.coincident(k, sb) for sb in seg.source_bones)
             tweak_hint = any(_TWEAK_HINT.search(c) for c in g.bones[k].collections)
+            via_deform_only = st not in seg.source_bones
             if coincident and not tweak_hint:
                 role, conf, why = "fk", 0.85, "coincides with a structural bone of the segment"
-            elif tweak_hint or (st != seg.source_bones[0] and not vc and st not in seg.source_bones):
+            elif tweak_hint or (via_deform_only and not vc):
                 role, conf, why = "tweak", 0.6, "drives deform bones directly / tweak collection"
+            elif via_deform_only:
+                role, conf, why = "deform_only", 0.4, "reaches only the segment's deform bones (e.g. via stretch)"
             elif k in upstream:
                 role, conf, why = "parent", 0.4, "also moves the parent segment (inherited)"
             else:
@@ -752,7 +767,7 @@ def map_controls(ex: RigExtraction, skel: Skeleton, anatomy: AnatomyProfile) -> 
                     seg.id,
                 )
             )
-        order = {"fk": 0, "master": 1, "tweak": 2, "parent": 3}
+        order = {"fk": 0, "master": 1, "tweak": 2, "parent": 3, "deform_only": 4}
         refs.sort(key=lambda r: (order.get(r.role, 4), len(r.path)))
         mapping.segments.append(SegmentControls(segment_id=seg.id, controls=refs[:16]))
         used |= set(found)

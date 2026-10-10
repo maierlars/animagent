@@ -75,12 +75,18 @@ def _show(spec):
         gpu.state.point_size_set(1.0)
         gpu.state.blend_set("NONE")
 
+    legend = spec.get("legend")
+    rect_shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+
     def draw_2d():
         region = bpy.context.region
         rv3d = bpy.context.region_data
         if rv3d is None:
             return
         font = 0
+        blf.enable(font, blf.SHADOW)
+        blf.shadow(font, 3, 0.0, 0.0, 0.0, 1.0)
+        blf.shadow_offset(font, 1, -1)
         blf.size(font, float(spec.get("label_size", 12)))
         for p, text, col in labels:
             co = location_3d_to_region_2d(region, rv3d, p)
@@ -89,6 +95,31 @@ def _show(spec):
             blf.color(font, *col)
             blf.position(font, co[0] + 6, co[1] + 4, 0)
             blf.draw(font, text)
+        if legend:
+            size = float(legend.get("size", 13))
+            items = legend.get("items", [])
+            line_h = size * 1.45
+            width = 12 + max([blf.dimensions(font, t)[0] for t, _ in items] + [blf.dimensions(font, legend.get("title", ""))[0]]) + 30
+            height = line_h * (len(items) + 1) + 12
+            x0, y1 = 12, region.height - 40
+            gpu.state.blend_set("ALPHA")
+            rect_shader.bind()
+            rect_shader.uniform_float("color", (0.0, 0.0, 0.0, 0.72))
+            batch_for_shader(rect_shader, "TRI_FAN", {"pos": [(x0, y1), (x0 + width, y1), (x0 + width, y1 - height), (x0, y1 - height)]}).draw(rect_shader)
+            gpu.state.blend_set("NONE")
+            blf.size(font, size)
+            blf.color(font, 1, 1, 1, 1)
+            blf.position(font, x0 + 8, y1 - line_h, 0)
+            blf.draw(font, legend.get("title", ""))
+            for i, (text, col) in enumerate(items):
+                y = y1 - line_h * (i + 2)
+                rect_shader.bind()
+                rect_shader.uniform_float("color", tuple(col))
+                batch_for_shader(rect_shader, "TRI_FAN", {"pos": [(x0 + 8, y), (x0 + 22, y), (x0 + 22, y + size * 0.8), (x0 + 8, y + size * 0.8)]}).draw(rect_shader)
+                blf.color(font, 1, 1, 1, 1)
+                blf.position(font, x0 + 30, y, 0)
+                blf.draw(font, text)
+        blf.disable(font, blf.SHADOW)
 
     h3 = bpy.types.SpaceView3D.draw_handler_add(draw_3d, (), "WINDOW", "POST_VIEW")
     h2 = bpy.types.SpaceView3D.draw_handler_add(draw_2d, (), "WINDOW", "POST_PIXEL")

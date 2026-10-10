@@ -16,7 +16,17 @@ from animagent.models.anatomy import Evidence
 CONTROLS_SCHEMA = "controls/1"
 
 ControlRole = Literal[
-    "fk", "ik_effector", "ik_pole", "ik_chain", "tweak", "parent", "master", "root", "torso", "generic"
+    "fk",
+    "ik_effector",
+    "ik_pole",
+    "ik_chain",
+    "tweak",
+    "parent",
+    "master",
+    "root",
+    "torso",
+    "generic",
+    "deform_only",
 ]
 
 

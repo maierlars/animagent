@@ -364,6 +364,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     v = sub.add_parser("verify-readonly", help="prove that extraction leaves the scene unchanged")
     v.add_argument("--armature", required=True)
+
+    rp = sub.add_parser("review-package", help="build the independent validation package (live + isolated runs)")
+    rp.add_argument("--armature", required=True)
+    rp.add_argument("--outdir", required=True)
+    rp.add_argument("--skip-tests", action="store_true")
     return p
 
 
@@ -391,6 +396,12 @@ def main(argv: list[str] | None = None) -> int:
             return anyio.run(_screenshot, args)
         if args.command == "verify-readonly":
             return anyio.run(_verify_readonly, args)
+        if args.command == "review-package":
+            from animagent.validation.package import build
+
+            manifest = build(args.armature, Path(args.outdir), skip_tests=args.skip_tests)
+            _print_json(manifest["validation_status"])
+            return 0
     except BlenderConnectionError as ex:
         print(f"error: cannot reach Blender via MCP: {ex}", file=sys.stderr)
         return 2

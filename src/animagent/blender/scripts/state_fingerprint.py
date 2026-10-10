@@ -1,7 +1,9 @@
 # Executed INSIDE Blender via MCP. Read-only.
 # Computes hashes of everything an inspection must not change: pose, rest pose, custom
 # properties, animation (keyframes + drivers), object transforms, mesh geometry/weights,
-# data-block counts, mode/selection/frame. Used before/after analysis to prove reversibility.
+# data-block inventory, text contents, scene/render/view-layer settings, collections,
+# materials/images/node groups (structure), ID properties, mode/selection/frame.
+# NOT covered: pixel data, full node-socket values, UI/screen layout, preferences, packed files. Used before/after analysis to prove reversibility.
 #
 # Contract: main({"armature": str | None}) -> {"hashes": {category: hex}, "info": {...}}
 
@@ -156,6 +158,64 @@ def _datablock_hash():
     return h.hexdigest(), counts
 
 
+def _texts_hash():
+    h = _h()
+    for t in sorted(bpy.data.texts, key=lambda t: t.name):
+        _upd(h, t.name, t.use_module, t.as_string())
+    return h.hexdigest()
+
+
+def _scene_hash():
+    h = _h()
+    for sc in sorted(bpy.data.scenes, key=lambda s: s.name):
+        r = sc.render
+        _upd(h, sc.name, sc.frame_start, sc.frame_end, sc.frame_step, r.fps, r.fps_base, r.engine,
+             r.resolution_x, r.resolution_y, sc.camera.name if sc.camera else None,
+             sc.world.name if sc.world else None, sc.unit_settings.system, sc.unit_settings.scale_length,
+             sc.tool_settings.use_keyframe_insert_auto, _props(sc))
+        for vl in sc.view_layers:
+            stack = [vl.layer_collection]
+            while stack:
+                lc = stack.pop()
+                _upd(h, vl.name, lc.name, lc.exclude, lc.hide_viewport, lc.holdout, lc.indirect_only)
+                stack.extend(lc.children)
+    return h.hexdigest()
+
+
+def _collections_hash():
+    h = _h()
+    for c in sorted(bpy.data.collections, key=lambda c: c.name):
+        _upd(h, c.name, sorted(o.name for o in c.objects), sorted(ch.name for ch in c.children),
+             c.hide_viewport, c.hide_render, c.hide_select, _props(c))
+    return h.hexdigest()
+
+
+def _materials_images_hash():
+    h = _h()
+    for m in sorted(bpy.data.materials, key=lambda m: m.name):
+        nodes = sorted((n.name, n.bl_idname, len(n.inputs)) for n in m.node_tree.nodes) if m.node_tree else []
+        _upd(h, m.name, m.users, nodes, _props(m))
+    for i in sorted(bpy.data.images, key=lambda i: i.name):
+        _upd(h, i.name, i.filepath, i.source, i.packed_file is not None, _props(i))
+    for ng in sorted(bpy.data.node_groups, key=lambda n: n.name):
+        _upd(h, ng.name, sorted((n.name, n.bl_idname) for n in ng.nodes))
+    return h.hexdigest()
+
+
+def _id_props_hash():
+    """Custom properties on every ID type (catches add-ons storing data on datablocks)."""
+    h = _h()
+    for attr in ("objects", "meshes", "armatures", "actions", "materials", "collections", "scenes", "texts",
+                 "images", "node_groups", "worlds", "cameras", "lights"):
+        for idb in sorted(getattr(bpy.data, attr, []), key=lambda x: x.name):
+            p = _props(idb)
+            if p:
+                _upd(h, attr, idb.name, p)
+    for a in sorted(bpy.data.actions, key=lambda a: a.name):
+        _upd(h, a.name, a.use_fake_user, len(getattr(a, "layers", [])), [s.identifier for s in getattr(a, "slots", [])])
+    return h.hexdigest()
+
+
 def _ui_state():
     ctx = bpy.context
     view_layer = ctx.view_layer
@@ -177,6 +237,11 @@ def main(args):
         "meshes": _mesh_hash(),
         "vertex_weights": _weights_hash(),
         "datablocks": db_hash,
+        "texts": _texts_hash(),
+        "scene_settings": _scene_hash(),
+        "collections": _collections_hash(),
+        "materials_images": _materials_images_hash(),
+        "id_properties": _id_props_hash(),
     }
     name = args.get("armature")
     if name:

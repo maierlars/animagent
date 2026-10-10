@@ -19,10 +19,29 @@
 - [x] Unit tests (synthetic rigs, fake MCP server); integration tests (background Blender, generated Rigify rig); opt-in live test
 - [x] Docs
 
+## Milestone 1 validation (review package) ✅ tooling / ⏳ independent review
+
+- [x] Independent Blender-side probe (`validation_probe`): bone-frame orthonormality, raw connectivity,
+      skin-vertex clouds per landmark (dominant weights), Blender's own driver F-curve evaluation
+- [x] Isolated experiments (`validation_experiment`, background copy only): switch semantics by motion,
+      FK hinge rotation, IK effector pull/bend side, pole effect, per-control influence sweep
+- [x] Checks A-H with method labels (independent / experimental / raw / consistency / heuristic)
+- [x] Validation screenshots with legends and close-ups (`validation/screens.py`)
+- [x] Generality runs on all stock Rigify metarigs (`validation/generality.py`)
+- [x] `animagent review-package` builds the data part of the review package
+- Defects found by validation and fixed: `neck` mislabelled as chest "master" (deform-only reach, now
+  `deform_only`); IK effector / foot-roll controls assigned to the toe instead of the foot segment;
+  duplicate segment/limb ids for a second leg pair (quadrupeds); FK/IK chain paths lacked the
+  constraint edge (provenance).
+- Incident: a direct `bpy.ops.screen.screenshot_area` call from the MCP execution context crashed the
+  interactive Blender (2026-10-10). Removed; only the official screenshot tool is used.
+
 ## Known limitations / open questions
 
-- Tested on a Rigify toucan (live) and a generated Rigify human (integration). **Kyra has not been
-  analysed yet**; we need her .blend.
+- Tested on a Rigify toucan (live) and generated Rigify rigs (human, basic human, bird, cat, wolf, horse,
+  basic quadruped, shark). **Bipeds only are supported.** Quadrupeds: front legs become a second leg pair
+  (`leg.fore.*`), the spine is not split without arms (no chest), face bones can be misread as tails,
+  rear-paw 3-segment IK is not resolved. **Kyra has not been analysed yet**; we need her .blend.
 - The GPT-6 path is tested only with a mocked client (no `OPENAI_API_KEY` in this environment);
   the model name `gpt-6` is configurable (`ANIMAGENT_LLM_MODEL`).
 - The control roles of trunk controls (fk/master/tweak/parent) are structural guesses. Rigify

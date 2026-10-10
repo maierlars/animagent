@@ -82,6 +82,13 @@ so analysis can be rerun or debugged offline without Blender.
 * `screenshot --view` saves the 3D view's location/rotation/distance/perspective and restores them.
 * The `.blend` file is never saved. Integration tests use generated fixtures in temporary files.
 
+## Validation tooling (`animagent/validation/`)
+
+`review-package` runs: tests -> live analysis + read-only probe (dirty state recorded after every phase) ->
+validation screenshots -> live-vs-disk fingerprint comparison -> experiments on an isolated background copy
+of the reference .blend -> generality runs -> checks A-H. Each check states its method so that analyzer
+self-consistency is never confused with independent evidence.
+
 ## Testing
 
 * `tests/unit`: synthetic skeletons (`tests/fakes/synthetic.py`: plain humanoid, tail,

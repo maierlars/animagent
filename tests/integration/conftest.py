@@ -7,10 +7,10 @@ from pathlib import Path
 import anyio
 import pytest
 
+from animagent.blender.background import BUILD_FIXTURE, background_blender, blender_binary
 from animagent.blender.session import BlenderSession
 from animagent.config import MCPServerConfig
 from animagent.mcp_client import BlenderMCPClient
-from tests.integration.blender_harness import BUILD_FIXTURE, background_blender, blender_binary
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:

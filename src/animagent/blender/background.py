@@ -1,4 +1,6 @@
-"""Run an isolated background Blender with the official MCP add-on bridge for integration tests.
+"""Run an isolated background Blender with the official MCP add-on bridge.
+
+Used by integration tests, validation experiments and generality runs.
 
 The official add-on provides a background bridge (`cli.cli_execute`); since the add-on may
 not be enabled in the user's saved preferences, a tiny launcher enables it for this
@@ -92,7 +94,8 @@ import bpy, bmesh
 from mathutils import Vector
 for o in list(bpy.data.objects):
     bpy.data.objects.remove(o)
-bpy.ops.object.armature_human_metarig_add()
+METARIG_OP = globals().get("METARIG_OP", "armature_human_metarig_add")
+getattr(bpy.ops.object, METARIG_OP)()
 meta = bpy.context.active_object
 meta.name = "metarig"
 bpy.ops.pose.rigify_generate()
